@@ -1,9 +1,5 @@
 """Application actions and information shown beside the board."""
 
-import json
-import os
-from pathlib import Path
-
 from computer import choose_move
 from game import (
     legal_moves,
@@ -28,10 +24,6 @@ SAVE_VERSION = 1
 
 
 class Session:
-    # Where "save" writes and "load" reads. A class attribute, so New game
-    # (which re-runs __init__) keeps it; tests may override it per instance.
-    save_file = Path(__file__).parent / "game.save.json"
-
     def __init__(self, opponent="human"):
         if opponent not in ("human", "computer"):
             raise ValueError("Unknown opponent")
@@ -102,26 +94,6 @@ class Session:
         self.replay(history)
         self.redo = list(redo)
 
-    def save(self):
-        text = json.dumps(self.saved(), indent=2)
-        # Write then rename, so an interrupted save never leaves a half-written
-        # file. The hidden name still matches the *.save.json ignore rule.
-        temporary = self.save_file.with_name("." + self.save_file.name)
-        try:
-            temporary.write_text(text, encoding="utf-8")
-            os.replace(temporary, self.save_file)
-        except OSError as error:
-            raise ValueError("Could not save the game") from error
-
-    def load(self):
-        try:
-            text = self.save_file.read_text(encoding="utf-8")
-        except FileNotFoundError as error:
-            raise ValueError("There is no saved game") from error
-        except OSError as error:
-            raise ValueError("Could not read the saved game") from error
-        self.restore(json.loads(text))
-
     def after_move(self):
         pass
 
@@ -158,9 +130,11 @@ class Session:
         elif command == "new":
             self.__init__(action.get("opponent", "human"))
         elif command == "save":
-            self.save()
+            # The browser writes this to a file the player chooses.
+            return {"game": self.saved()}
         elif command == "load":
-            self.load()
+            # The browser sends the contents of a file the player chose.
+            self.restore(action.get("game"))
         elif command == "promotion-setup":
             self.__init__()
             for source, target in PROMOTION_SETUP:

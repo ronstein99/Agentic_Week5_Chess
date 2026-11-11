@@ -79,11 +79,11 @@ telling your partner.
   The computer is never asked to choose again, so recorded moves replay exactly.
 - Undo at the start does nothing. Against a person undo takes back 1 move; against the
   computer it takes back 2 (its reply and yours), so White is to move. Redo restores the same.
-- Save file `game.save.json` (ignored by git):
+- Save file, a JSON file the player names and places with a save dialog:
   `{"version": 1, "opponent": "...", "history": [...], "redo": [...]}`.
-  Load replays `history` in a fresh session, keeping opponent, undo and redo.
-  Implemented on `feature/save-load`: `Session.save()` / `Session.load()` behind the
-  `save` / `load` actions and buttons; the file sits next to `server.py`.
+  Load (the player picks the file) replays `history` in a fresh session, keeping
+  opponent, undo and redo. Actions: `{"action": "save"}` returns `{"game": <that dict>}`;
+  `{"action": "load", "game": <that dict>}` restores it via `Session.restore()`.
 - Actions: `{"action": "undo"}` / `"redo"` (undo partner), `"save"` / `"load"`
   (save/load partner). Each partner adds only their own `dispatch` branches and buttons.
 - Known merge issue: `captured.py` counts missing pieces, so a promoted pawn would show as
