@@ -14,6 +14,14 @@ python3 server.py
 python -m pytest
 ```
 
+Checks (settings in `pyproject.toml`):
+
+```sh
+python -m pytest --cov   # tests with a coverage report of the app modules
+ruff check .             # lint; `ruff check --fix .` fixes what it can
+mypy                     # type check, including unannotated functions
+```
+
 Start a game against another person or against the computer. Against the computer you
 play White; it looks one move ahead and plays the move that leaves it the most material,
 preferring checkmate. Select a piece, then a highlighted destination. White moves first.

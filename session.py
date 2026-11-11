@@ -9,7 +9,6 @@ from game import (
     winner,
 )
 
-
 # Legal from the standard starting position under this game's rules.
 # Next move: b7-a8, capturing a rook and reaching the last rank.
 PROMOTION_SETUP = [
@@ -34,6 +33,10 @@ class Session:
         self.history = []
         # Undone move records, most recently undone last.
         self.redo = []
+
+    def reset(self, opponent="human"):
+        """Start a new game: clears history and redo."""
+        Session.__init__(self, opponent)
 
     @property
     def notation(self):
@@ -149,7 +152,7 @@ class Session:
         elif command == "legal":
             return {"targets": legal_moves(self.position, action.get("source"))}
         elif command == "new":
-            self.__init__(action.get("opponent", "human"))
+            self.reset(action.get("opponent", "human"))
         elif command == "save":
             # The browser writes this to a file the player chooses.
             return {"game": self.saved()}
@@ -157,7 +160,7 @@ class Session:
             # The browser sends the contents of a file the player chose.
             self.restore(action.get("game"))
         elif command == "promotion-setup":
-            self.__init__()
+            self.reset()
             for source, target in PROMOTION_SETUP:
                 self.play(source, target)
         else:
