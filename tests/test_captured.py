@@ -1,7 +1,7 @@
 from session import Session
 
 
-def test_display_after_capture_and_new_game():
+def test_display_after_capture_and_new_game() -> None:
     session = Session()
     assert session.view()["captured"] == []
     session.play("e2", "e4")
@@ -12,7 +12,7 @@ def test_display_after_capture_and_new_game():
     assert session.view()["captured"] == []
 
 
-def test_undo_removes_capture_from_display():
+def test_undo_removes_capture_from_display() -> None:
     session = Session()
     session.play("e2", "e4")
     session.play("d7", "d5")
@@ -21,7 +21,7 @@ def test_undo_removes_capture_from_display():
     assert session.view()["captured"] == []
 
 
-def test_display_matches_loaded_game():
+def test_display_matches_loaded_game() -> None:
     session = Session()
     session.play("e2", "e4")
     session.play("d7", "d5")
@@ -37,7 +37,7 @@ def test_display_matches_loaded_game():
     assert loaded.view()["captured"] == []
 
 
-def test_captured_counts_only_history_captures():
+def test_captured_counts_only_history_captures() -> None:
     session = Session()
     session.play("e2", "e4")
     # A piece missing from the board without a recorded capture (as after a

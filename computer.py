@@ -1,39 +1,63 @@
 """A computer opponent that looks one move ahead."""
 
 import random
+from collections.abc import Iterator, Sequence
+from typing import Protocol, TypeVar
 
-from game import PROMOTION_PIECES, copy_position, legal_moves, move, promotes, status
+from game import (
+    PROMOTION_PIECES,
+    Board,
+    Move,
+    Position,
+    copy_position,
+    legal_moves,
+    move,
+    promotes,
+    status,
+)
+
+T = TypeVar("T")
+
+
+class Chooser(Protocol):
+    """Picks one item: the random module or a random.Random instance."""
+
+    def choice(self, seq: Sequence[T]) -> T: ...
+
 
 VALUES = {"P": 1, "N": 3, "B": 3, "R": 5, "Q": 9, "K": 0}
 CHECKMATE = 1000
 
 
-def candidate_moves(position):
-    board, turn = position[:2]
+def candidate_moves(position: Position) -> Iterator[Move]:
+    board: Board = position[0]
+    turn: str = position[1]
     for source, piece in sorted(board.items()):
         if piece[0] == turn:
             for target in legal_moves(position, source):
                 if promotes(position, source, target):
-                    for piece in PROMOTION_PIECES:
-                        yield (source, target, piece)
+                    for kind in PROMOTION_PIECES:
+                        yield (source, target, kind)
                 else:
                     yield (source, target)
 
 
-def evaluate(position, side):
+def evaluate(position: Position, side: str) -> int:
     """Score a position for side: material, unless the game is over."""
     result = status(position)
     if result == "checkmate":
         return CHECKMATE if position[1] != side else -CHECKMATE
     if result == "stalemate":
         return 0
-    return sum(VALUES[piece[1]] * (1 if piece[0] == side else -1) for piece in position[0].values())
+    board: Board = position[0]
+    return sum(VALUES[piece[1]] * (1 if piece[0] == side else -1) for piece in board.values())
 
 
-def choose_move(position, rng=random):
+def choose_move(position: Position, rng: Chooser = random) -> Move | None:
     """Return the move with the best score after it, or None if there is no move."""
-    side = position[1]
-    best, best_score = [], None
+    side: str = position[1]
+    best: list[Move] = []
+    best_score: int | None = None
     for candidate in candidate_moves(position):
         trial = copy_position(position)
         move(trial, *candidate)

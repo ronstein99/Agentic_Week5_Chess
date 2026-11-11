@@ -1,7 +1,10 @@
 """Application actions and information shown beside the board."""
 
+from typing import Any, TypedDict
+
 from computer import choose_move
 from game import (
+    Position,
     legal_moves,
     move,
     new_position,
@@ -27,56 +30,75 @@ PROMOTION_SETUP = [
 SAVE_VERSION = 1
 
 
+class MoveRecord(TypedDict):
+    """One played move, as kept in history and redo and written to save files."""
+
+    source: str
+    target: str
+    promotion: str | None  # The piece a pawn promoted to, such as "Q".
+    captured: str | None  # The piece on target before the move, such as "bP".
+    label: str  # Move notation, such as "e4xd5".
+
+
+def square(action: dict[str, Any], key: str) -> str:
+    """The square an action names under key, such as "e2"."""
+    value = action.get(key)
+    if not isinstance(value, str):
+        raise ValueError("Expected a square such as e2")
+    return value
+
+
 class Session:
-    def __init__(self, opponent="human"):
+    def __init__(self, opponent: str = "human") -> None:
         if opponent not in ("human", "computer"):
             raise ValueError("Unknown opponent")
-        self.position = new_position()
+        self.position: Position = new_position()
         self.opponent = opponent
-        # Shared move history (see README "Agreed shared design").
-        # Each record: {"source", "target", "promotion", "captured", "label"}.
-        self.history = []
+        # Shared move history (see README "Agreed shared design"), oldest first.
+        self.history: list[MoveRecord] = []
         # Undone move records, most recently undone last.
-        self.redo = []
+        self.redo: list[MoveRecord] = []
 
-    def reset(self, opponent="human"):
+    def reset(self, opponent: str = "human") -> None:
         """Start a new game: clears history and redo."""
         Session.__init__(self, opponent)
 
     @property
-    def captured(self):
+    def captured(self) -> list[str]:
         """Pieces actually captured in the played continuation, as they were when taken.
 
         Derived from history, so undo, redo and load always match the board, and a
         promoted pawn is not counted as captured.
         """
-        return sorted(record["captured"] for record in self.history if record["captured"])
+        return sorted(
+            record["captured"] for record in self.history if record["captured"] is not None
+        )
 
     @property
-    def notation(self):
+    def notation(self) -> list[str]:
         """Move labels of the currently played continuation."""
         return [record["label"] for record in self.history]
 
-    def play(self, source, target, promotion=None):
+    def play(self, source: str, target: str, promotion: str | None = None) -> None:
         """Play a move. A different move from the one that could be redone discards redo.
 
         Playing exactly the next redo move (same squares and promotion) just uses it up,
         so the rest of the undone continuation can still be redone.
         """
         self.apply(source, target, promotion)
-        following = self.redo[-1] if self.redo else {}
-        if (following.get("source"), following.get("target"), following.get("promotion")) == (
-            source,
-            target,
-            promotion,
-        ):
+        following = self.redo[-1] if self.redo else None
+        if following is not None and (
+            following["source"],
+            following["target"],
+            following["promotion"],
+        ) == (source, target, promotion):
             self.redo.pop()
         else:
             self.redo = []
 
-    def apply(self, source, target, promotion=None):
+    def apply(self, source: str, target: str, promotion: str | None = None) -> None:
         """Apply one move and append its record to history."""
-        captured = self.position[0].get(target)
+        captured: str | None = self.position[0].get(target)
         label = move(self.position, source, target, promotion)
         self.history.append(
             {
@@ -89,7 +111,7 @@ class Session:
         )
         self.after_move()
 
-    def replay(self, records):
+    def replay(self, records: list[MoveRecord]) -> None:
         """Rebuild the position from the start by replaying move records.
 
         Keeps self.redo unchanged; callers (undo, redo, load) manage it.
@@ -99,7 +121,7 @@ class Session:
         for record in records:
             self.apply(record["source"], record["target"], record["promotion"])
 
-    def undo(self):
+    def undo(self) -> None:
         """Take back the last move; against the computer, take back to White's turn.
 
         Against a person this undoes one move. Against the computer it undoes the
@@ -118,7 +140,7 @@ class Session:
         # Most recently undone last: the earlier move goes on top.
         self.redo.extend(undone)
 
-    def redo_move(self):
+    def redo_move(self) -> None:
         """Restore what the last undo took back, with its captures and promotions.
 
         Against a person this redoes one move. Against the computer it redoes your move
@@ -132,13 +154,13 @@ class Session:
             while self.redo and len(self.history) % 2:
                 self.apply_redo()
 
-    def apply_redo(self):
+    def apply_redo(self) -> None:
         """Replay the next undone record; it leaves self.redo only once it has applied."""
         record = self.redo[-1]
         self.apply(record["source"], record["target"], record["promotion"])
         self.redo.pop()
 
-    def saved(self):
+    def saved(self) -> dict[str, Any]:
         """The game as saved to file: enough to rebuild it, undo and redo."""
         return {
             "version": SAVE_VERSION,
@@ -147,7 +169,7 @@ class Session:
             "redo": self.redo,
         }
 
-    def restore(self, data):
+    def restore(self, data: Any) -> None:
         """Replace this game with saved data. On invalid data, nothing changes."""
         invalid = ValueError("The save file is not a valid game")
         if (
@@ -173,10 +195,10 @@ class Session:
         self.replay(history)
         self.redo = list(redo)
 
-    def after_move(self):
+    def after_move(self) -> None:
         pass
 
-    def view(self):
+    def view(self) -> dict[str, Any]:
         return {
             "board": self.position[0],
             "turn": self.position[1],
@@ -187,32 +209,35 @@ class Session:
             **self.sidebar(),
         }
 
-    def computer_to_move(self):
+    def computer_to_move(self) -> bool:
         return (
             self.opponent == "computer"
             and self.position[1] == "b"
             and status(self.position) not in ("checkmate", "stalemate")
         )
 
-    def sidebar(self):
+    def sidebar(self) -> dict[str, Any]:
         return {"captured": self.captured}
 
-    def dispatch(self, action):
+    def dispatch(self, action: dict[str, Any]) -> dict[str, Any]:
         command = action.get("action")
         if command == "move":
             if self.computer_to_move():
                 raise ValueError("Wait for the computer's move")
-            self.play(action.get("source"), action.get("target"), action.get("promotion"))
+            self.play(square(action, "source"), square(action, "target"), action.get("promotion"))
         elif command == "computer-move":
             if not self.computer_to_move():
                 raise ValueError("It is not the computer's turn")
-            self.play(*choose_move(self.position))
+            chosen = choose_move(self.position)
+            # The computer has a move: computer_to_move() excludes a finished game.
+            assert chosen is not None
+            self.play(*chosen)
         elif command == "undo":
             self.undo()
         elif command == "redo":
             self.redo_move()
         elif command == "legal":
-            source = action.get("source")
+            source = square(action, "source")
             targets = legal_moves(self.position, source)
             return {
                 "targets": targets,

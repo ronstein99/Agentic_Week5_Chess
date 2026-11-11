@@ -7,7 +7,7 @@ from game import copy_position, legal_moves, move
 from session import Session
 
 
-def test_white_capture_promotion():
+def test_white_capture_promotion() -> None:
     session = Session()
     session.dispatch({"action": "promotion-setup"})
     legal = session.dispatch({"action": "legal", "source": "b7"})
@@ -21,7 +21,7 @@ def test_white_capture_promotion():
 
 
 @pytest.mark.parametrize("piece", list("QRBN"))
-def test_chosen_piece_and_notation(piece):
+def test_chosen_piece_and_notation(piece: str) -> None:
     board = {"a1": "wK", "h6": "bK", "d7": "wP"}
     label = move([board, "w"], "d7", "d8", piece)
     assert board["d8"] == "w" + piece
@@ -29,7 +29,7 @@ def test_chosen_piece_and_notation(piece):
 
 
 @pytest.mark.parametrize("choice", [None, "K", "P", "X"])
-def test_promotion_needs_a_valid_choice(choice):
+def test_promotion_needs_a_valid_choice(choice: str | None) -> None:
     position = [{"a1": "wK", "h6": "bK", "d7": "wP"}, "w"]
     before = copy_position(position)
     with pytest.raises(ValueError):
@@ -37,12 +37,12 @@ def test_promotion_needs_a_valid_choice(choice):
     assert position == before
 
 
-def test_computer_promotes():
+def test_computer_promotes() -> None:
     position = [{"a8": "wK", "e8": "bK", "h2": "bP"}, "b"]
     assert choose_move(position) == ("h2", "h1", "Q")
 
 
-def test_choice_only_on_promotion():
+def test_choice_only_on_promotion() -> None:
     session = Session()
     with pytest.raises(ValueError):
         session.play("e2", "e4", "Q")
@@ -51,13 +51,13 @@ def test_choice_only_on_promotion():
 # Promotion with undo, captured pieces and save/load.
 
 
-def capture_promotions(session):
+def capture_promotions(session: Session) -> None:
     session.dispatch({"action": "promotion-setup"})
     session.dispatch({"action": "move", "source": "b7", "target": "a8", "promotion": "Q"})
     session.dispatch({"action": "move", "source": "g2", "target": "h1", "promotion": "N"})
 
 
-def test_history_records_promotion():
+def test_history_records_promotion() -> None:
     session = Session()
     capture_promotions(session)
     assert session.history[-2] == {
@@ -70,7 +70,7 @@ def test_history_records_promotion():
     assert session.notation[-1] == "g2xh1=N"
 
 
-def test_undo_promotion_restores_pawn_and_captured_piece():
+def test_undo_promotion_restores_pawn_and_captured_piece() -> None:
     session = Session()
     capture_promotions(session)
     session.dispatch({"action": "undo"})
@@ -82,7 +82,7 @@ def test_undo_promotion_restores_pawn_and_captured_piece():
     assert [r["label"] for r in session.redo] == ["g2xh1=N", "b7xa8=Q"]
 
 
-def test_captured_shows_capture_not_promotion():
+def test_captured_shows_capture_not_promotion() -> None:
     session = Session()
     capture_promotions(session)
     # The rooks were captured; the promoted pawns are not shown as captured.
@@ -93,7 +93,7 @@ def test_captured_shows_capture_not_promotion():
     assert plain.captured == []
 
 
-def test_save_and_load_keep_promotion():
+def test_save_and_load_keep_promotion() -> None:
     session = Session()
     capture_promotions(session)
     session.dispatch({"action": "undo"})
@@ -104,7 +104,7 @@ def test_save_and_load_keep_promotion():
     assert loaded.redo == session.redo and loaded.redo[-1]["promotion"] == "N"
 
 
-def test_load_rejects_missing_or_wrong_promotion():
+def test_load_rejects_missing_or_wrong_promotion() -> None:
     session = Session()
     capture_promotions(session)
     game = json.loads(json.dumps(session.dispatch({"action": "save"})["game"]))
@@ -114,7 +114,7 @@ def test_load_rejects_missing_or_wrong_promotion():
             Session().dispatch({"action": "load", "game": game})
 
 
-def test_computer_promotion_is_recorded():
+def test_computer_promotion_is_recorded() -> None:
     session = Session("computer")
     session.position = [{"a8": "wK", "e8": "bK", "h2": "bP", "a2": "wP"}, "b"]
     session.dispatch({"action": "computer-move"})
