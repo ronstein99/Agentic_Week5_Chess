@@ -1,3 +1,5 @@
+import json
+
 from session import Session
 
 
@@ -44,3 +46,106 @@ def test_new_move_clears_redo_and_new_game_clears_all():
     assert session.redo == []
     session.dispatch({"action": "new"})
     assert session.history == [] and session.redo == []
+
+
+# Undo.
+
+def play_computer_game(session):
+    """Two moves for each side against the computer, so White is to move."""
+    session.dispatch({"action": "move", "source": "e2", "target": "e4"})
+    session.dispatch({"action": "computer-move"})
+    session.dispatch({"action": "move", "source": "d2", "target": "d4"})
+    session.dispatch({"action": "computer-move"})
+
+
+def test_undo_restores_capture_turn_and_notation():
+    session = Session()
+    play_capture(session)
+    view = session.dispatch({"action": "undo"})
+    assert view["board"]["d5"] == "bP" and view["board"]["e4"] == "wP"
+    assert view["turn"] == "w"
+    assert view["moves"] == ["e2-e4", "d7-d5"]
+    assert session.redo[-1]["label"] == "e4xd5"
+
+
+def test_repeated_undo_reaches_start_then_does_nothing():
+    session = Session()
+    play_capture(session)
+    for _ in range(3):
+        session.dispatch({"action": "undo"})
+    assert session.position == Session().position and session.history == []
+    session.dispatch({"action": "undo"})
+    assert session.position == Session().position
+    assert [r["label"] for r in session.redo] == ["e4xd5", "d7-d5", "e2-e4"]
+
+
+def test_undo_against_computer_takes_back_reply_and_your_move():
+    session = Session("computer")
+    play_computer_game(session)
+    view = session.dispatch({"action": "undo"})
+    assert view["turn"] == "w" and len(view["moves"]) == 2
+    # Your move is redone before the computer's reply, so it goes on top.
+    assert len(session.redo) == 2 and session.redo[-1]["label"] == "d2-d4"
+    session.dispatch({"action": "undo"})
+    assert session.history == [] and session.position == Session().position
+
+
+def test_undo_against_computer_before_its_reply_takes_back_one():
+    session = Session("computer")
+    session.dispatch({"action": "move", "source": "e2", "target": "e4"})
+    view = session.dispatch({"action": "undo"})
+    assert view["turn"] == "w" and view["moves"] == []
+
+
+# Undo with save/load.
+
+def save_and_load(session):
+    """Save through JSON, as the browser does, and load into a fresh session."""
+    game = json.loads(json.dumps(session.dispatch({"action": "save"})["game"]))
+    loaded = Session()
+    loaded.dispatch({"action": "load", "game": game})
+    return loaded
+
+
+def test_load_after_undo_keeps_game_and_redo():
+    session = Session("computer")
+    play_computer_game(session)
+    session.dispatch({"action": "undo"})
+    loaded = save_and_load(session)
+    assert loaded.opponent == "computer"
+    assert loaded.position == session.position
+    assert loaded.history == session.history
+    assert loaded.redo == session.redo
+
+
+def test_undo_after_load_matches_undo_before_save():
+    session = Session()
+    play_capture(session)
+    loaded = save_and_load(session)
+    loaded.dispatch({"action": "undo"})
+    session.dispatch({"action": "undo"})
+    assert loaded.position == session.position
+    assert loaded.notation == session.notation
+    assert loaded.redo == session.redo
+    assert loaded.position[0]["d5"] == "bP"
+
+
+def test_undo_after_load_against_computer_takes_back_two():
+    session = Session("computer")
+    play_computer_game(session)
+    loaded = save_and_load(session)
+    view = loaded.dispatch({"action": "undo"})
+    assert view["turn"] == "w" and len(view["moves"]) == 2
+    assert loaded.redo[-1]["label"] == "d2-d4"
+
+
+def test_undo_to_start_then_save_and_load():
+    session = Session()
+    play_capture(session)
+    for _ in range(3):
+        session.dispatch({"action": "undo"})
+    loaded = save_and_load(session)
+    assert loaded.history == [] and loaded.position == Session().position
+    assert loaded.redo == session.redo
+    loaded.dispatch({"action": "undo"})
+    assert loaded.position == Session().position and loaded.redo == session.redo
