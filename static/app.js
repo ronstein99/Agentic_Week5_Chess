@@ -164,7 +164,10 @@ document.querySelector('#save').onclick = async () => {
   busy = true;
   message.textContent = '';
   try {
-    // Open the dialog first, while the click still counts as a user gesture.
+    // Get the game before the dialog: picking a file in the dialog creates it, so a
+    // failed request afterwards would leave an empty file. The local request is quick,
+    // so the click still counts as a user gesture when the dialog opens.
+    const {game} = await request({action: 'save'});
     const handle = window.showSaveFilePicker
       ? await window.showSaveFilePicker({suggestedName: suggestedName(), types: SAVE_TYPES})
       : null;
@@ -174,7 +177,6 @@ document.querySelector('#save').onclick = async () => {
       if (!name) return;
       if (!name.endsWith('.json')) name += '.json';
     }
-    const {game} = await request({action: 'save'});
     const text = JSON.stringify(game, null, 2);
     if (handle) {
       const writable = await handle.createWritable();
