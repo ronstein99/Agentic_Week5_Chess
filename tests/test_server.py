@@ -27,8 +27,9 @@ def get(url):
 
 def post(url, body):
     data = body if isinstance(body, bytes) else json.dumps(body).encode()
-    request = urllib.request.Request(url, data=data, method="POST",
-                                     headers={"Content-Type": "application/json"})
+    request = urllib.request.Request(
+        url, data=data, method="POST", headers={"Content-Type": "application/json"}
+    )
     try:
         with urllib.request.urlopen(request) as response:
             return response.status, json.loads(response.read())
@@ -36,9 +37,10 @@ def post(url, body):
         return error.code, json.loads(error.read())
 
 
-@pytest.mark.parametrize("path,content_type", [("/", "text/html"),
-                                               ("/app.js", "text/javascript"),
-                                               ("/style.css", "text/css")])
+@pytest.mark.parametrize(
+    "path,content_type",
+    [("/", "text/html"), ("/app.js", "text/javascript"), ("/style.css", "text/css")],
+)
 def test_serves_static_files(base_url, path, content_type):
     status, headers, body = get(base_url + path)
     assert status == 200 and body
@@ -70,12 +72,15 @@ def test_actions_change_the_shared_game(base_url):
     assert status == 200 and state["moves"] == []
 
 
-@pytest.mark.parametrize("body,error", [
-    ({"action": "move", "source": "e2", "target": "e5"}, None),
-    ({"action": "fly"}, "Unknown action"),
-    ([1, 2], "Expected an action object"),
-    (b"not json", None),
-])
+@pytest.mark.parametrize(
+    "body,error",
+    [
+        ({"action": "move", "source": "e2", "target": "e5"}, None),
+        ({"action": "fly"}, "Unknown action"),
+        ([1, 2], "Expected an action object"),
+        (b"not json", None),
+    ],
+)
 def test_bad_actions_are_rejected(base_url, body, error):
     status, result = post(base_url + "/api/action", body)
     assert status == 400 and result["error"]

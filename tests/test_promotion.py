@@ -50,6 +50,7 @@ def test_choice_only_on_promotion():
 
 # Promotion with undo, captured pieces and save/load.
 
+
 def capture_promotions(session):
     session.dispatch({"action": "promotion-setup"})
     session.dispatch({"action": "move", "source": "b7", "target": "a8", "promotion": "Q"})
@@ -59,8 +60,13 @@ def capture_promotions(session):
 def test_history_records_promotion():
     session = Session()
     capture_promotions(session)
-    assert session.history[-2] == {"source": "b7", "target": "a8", "promotion": "Q",
-                                   "captured": "bR", "label": "b7xa8=Q"}
+    assert session.history[-2] == {
+        "source": "b7",
+        "target": "a8",
+        "promotion": "Q",
+        "captured": "bR",
+        "label": "b7xa8=Q",
+    }
     assert session.notation[-1] == "g2xh1=N"
 
 

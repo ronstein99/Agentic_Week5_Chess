@@ -13,10 +13,14 @@ from game import (
 # Legal from the standard starting position under this game's rules.
 # Next move: b7-a8, capturing a rook and reaching the last rank.
 PROMOTION_SETUP = [
-    ("a2", "a4"), ("h7", "h5"),
-    ("a4", "a5"), ("h5", "h4"),
-    ("a5", "a6"), ("h4", "h3"),
-    ("a6", "b7"), ("h3", "g2"),
+    ("a2", "a4"),
+    ("h7", "h5"),
+    ("a4", "a5"),
+    ("h5", "h4"),
+    ("a5", "a6"),
+    ("h4", "h3"),
+    ("a6", "b7"),
+    ("h3", "g2"),
 ]
 
 
@@ -61,8 +65,11 @@ class Session:
         """
         self.apply(source, target, promotion)
         following = self.redo[-1] if self.redo else {}
-        if (following.get("source"), following.get("target"),
-                following.get("promotion")) == (source, target, promotion):
+        if (following.get("source"), following.get("target"), following.get("promotion")) == (
+            source,
+            target,
+            promotion,
+        ):
             self.redo.pop()
         else:
             self.redo = []
@@ -71,9 +78,15 @@ class Session:
         """Apply one move and append its record to history."""
         captured = self.position[0].get(target)
         label = move(self.position, source, target, promotion)
-        self.history.append({"source": source, "target": target,
-                             "promotion": promotion, "captured": captured,
-                             "label": label})
+        self.history.append(
+            {
+                "source": source,
+                "target": target,
+                "promotion": promotion,
+                "captured": captured,
+                "label": label,
+            }
+        )
         self.after_move()
 
     def replay(self, records):
@@ -127,18 +140,24 @@ class Session:
 
     def saved(self):
         """The game as saved to file: enough to rebuild it, undo and redo."""
-        return {"version": SAVE_VERSION, "opponent": self.opponent,
-                "history": self.history, "redo": self.redo}
+        return {
+            "version": SAVE_VERSION,
+            "opponent": self.opponent,
+            "history": self.history,
+            "redo": self.redo,
+        }
 
     def restore(self, data):
         """Replace this game with saved data. On invalid data, nothing changes."""
         invalid = ValueError("The save file is not a valid game")
-        if (not isinstance(data, dict) or data.get("version") != SAVE_VERSION
-                or data.get("opponent") not in ("human", "computer")
-                or not isinstance(data.get("history"), list)
-                or not isinstance(data.get("redo"), list)
-                or not all(isinstance(record, dict)
-                           for record in data["history"] + data["redo"])):
+        if (
+            not isinstance(data, dict)
+            or data.get("version") != SAVE_VERSION
+            or data.get("opponent") not in ("human", "computer")
+            or not isinstance(data.get("history"), list)
+            or not isinstance(data.get("redo"), list)
+            or not all(isinstance(record, dict) for record in data["history"] + data["redo"])
+        ):
             raise invalid
         opponent, history, redo = data["opponent"], data["history"], data["redo"]
         # Check every recorded move is legal, including the moves that could be
@@ -169,8 +188,11 @@ class Session:
         }
 
     def computer_to_move(self):
-        return (self.opponent == "computer" and self.position[1] == "b"
-                and status(self.position) not in ("checkmate", "stalemate"))
+        return (
+            self.opponent == "computer"
+            and self.position[1] == "b"
+            and status(self.position) not in ("checkmate", "stalemate")
+        )
 
     def sidebar(self):
         return {"captured": self.captured}
@@ -192,8 +214,10 @@ class Session:
         elif command == "legal":
             source = action.get("source")
             targets = legal_moves(self.position, source)
-            return {"targets": targets,
-                    "promotions": [t for t in targets if promotes(self.position, source, t)]}
+            return {
+                "targets": targets,
+                "promotions": [t for t in targets if promotes(self.position, source, t)],
+            }
         elif command == "new":
             self.reset(action.get("opponent", "human"))
         elif command == "save":

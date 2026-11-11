@@ -14,9 +14,13 @@ def play_capture(session):
 def test_history_records_moves():
     session = Session()
     play_capture(session)
-    assert session.history[-1] == {"source": "e4", "target": "d5",
-                                   "promotion": None, "captured": "bP",
-                                   "label": "e4xd5"}
+    assert session.history[-1] == {
+        "source": "e4",
+        "target": "d5",
+        "promotion": None,
+        "captured": "bP",
+        "label": "e4xd5",
+    }
     assert session.history[0]["captured"] is None
     assert session.view()["moves"] == ["e2-e4", "d7-d5", "e4xd5"]
 
@@ -51,6 +55,7 @@ def test_new_move_clears_redo_and_new_game_clears_all():
 
 
 # Undo.
+
 
 def play_computer_game(session):
     """Two moves for each side against the computer, so White is to move."""
@@ -100,6 +105,7 @@ def test_undo_against_computer_before_its_reply_takes_back_one():
 
 
 # Undo with save/load.
+
 
 def save_and_load(session):
     """Save through JSON, as the browser does, and load into a fresh session."""
@@ -155,6 +161,7 @@ def test_undo_to_start_then_save_and_load():
 
 # Rejected save files leave the current game unchanged.
 
+
 def valid_save():
     session = Session()
     play_capture(session)
@@ -168,18 +175,21 @@ def corrupt(change):
     return game
 
 
-@pytest.mark.parametrize("game", [
-    None,
-    [],
-    corrupt(lambda g: g.update(version=2)),
-    corrupt(lambda g: g.update(opponent="robot")),
-    corrupt(lambda g: g.update(history="e2-e4")),
-    corrupt(lambda g: g.update(redo=None)),
-    corrupt(lambda g: g["history"].append("e2-e4")),
-    corrupt(lambda g: g["history"][0].update(target="e5")),   # Illegal move.
-    corrupt(lambda g: g["redo"][0].update(source="a1")),      # Illegal redo move.
-    corrupt(lambda g: g["history"][0].pop("promotion")),      # Missing field.
-])
+@pytest.mark.parametrize(
+    "game",
+    [
+        None,
+        [],
+        corrupt(lambda g: g.update(version=2)),
+        corrupt(lambda g: g.update(opponent="robot")),
+        corrupt(lambda g: g.update(history="e2-e4")),
+        corrupt(lambda g: g.update(redo=None)),
+        corrupt(lambda g: g["history"].append("e2-e4")),
+        corrupt(lambda g: g["history"][0].update(target="e5")),  # Illegal move.
+        corrupt(lambda g: g["redo"][0].update(source="a1")),  # Illegal redo move.
+        corrupt(lambda g: g["history"][0].pop("promotion")),  # Missing field.
+    ],
+)
 def test_invalid_save_is_rejected_and_game_kept(game):
     session = Session("computer")
     session.play("e2", "e4")
@@ -190,6 +200,7 @@ def test_invalid_save_is_rejected_and_game_kept(game):
 
 
 # Other actions.
+
 
 def test_legal_action_lists_targets():
     assert set(Session().dispatch({"action": "legal", "source": "g1"})["targets"]) == {"f3", "h3"}
