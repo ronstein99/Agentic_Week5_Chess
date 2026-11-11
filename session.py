@@ -62,6 +62,25 @@ class Session:
         for record in records:
             self.apply(record["source"], record["target"], record["promotion"])
 
+    def undo(self):
+        """Take back the last move; against the computer, take back to White's turn.
+
+        Against a person this undoes one move. Against the computer it undoes the
+        computer's reply and your move (two records), so White is to move again; if the
+        computer has not replied (e.g. your move ended the game), it undoes just yours.
+        At the start of the game it does nothing. Undone records go onto self.redo.
+        """
+        if not self.history:
+            return
+        records = self.history[:]
+        undone = [records.pop()]
+        if self.opponent == "computer":
+            while records and len(records) % 2:
+                undone.append(records.pop())
+        self.replay(records)
+        # Most recently undone last: the earlier move goes on top.
+        self.redo.extend(undone)
+
     def after_move(self):
         pass
 
@@ -93,6 +112,8 @@ class Session:
             if not self.computer_to_move():
                 raise ValueError("It is not the computer's turn")
             self.play(*choose_move(self.position))
+        elif command == "undo":
+            self.undo()
         elif command == "legal":
             return {"targets": legal_moves(self.position, action.get("source"))}
         elif command == "new":
