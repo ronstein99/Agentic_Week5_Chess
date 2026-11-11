@@ -150,6 +150,72 @@ document.querySelector('#controls').onclick = async event => {
   finally { busy = false; }
 };
 
+// Save: the player chooses the file name and location. Chrome and Edge show a
+// real save dialog; other browsers ask for a name and download the file (choose
+// the folder by enabling "ask where to save" in the browser's settings).
+const SAVE_TYPES = [{description: 'Chess game', accept: {'application/json': ['.json']}}];
+function suggestedName() {
+  const stamp = new Date().toISOString().slice(0, 16).replace(/[T:]/g, '-');
+  return `chess-${stamp}.save.json`;
+}
+
+document.querySelector('#save').onclick = async () => {
+  if (busy) return;
+  busy = true;
+  message.textContent = '';
+  try {
+    // Open the dialog first, while the click still counts as a user gesture.
+    const handle = window.showSaveFilePicker
+      ? await window.showSaveFilePicker({suggestedName: suggestedName(), types: SAVE_TYPES})
+      : null;
+    let name = handle?.name;
+    if (!handle) {
+      name = window.prompt('Save the game as:', suggestedName());
+      if (!name) return;
+      if (!name.endsWith('.json')) name += '.json';
+    }
+    const {game} = await request({action: 'save'});
+    const text = JSON.stringify(game, null, 2);
+    if (handle) {
+      const writable = await handle.createWritable();
+      await writable.write(text);
+      await writable.close();
+    } else {
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([text], {type: 'application/json'}));
+      link.download = name;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    }
+    message.textContent = `Game saved as ${name}`;
+  } catch (error) {
+    if (error.name !== 'AbortError') message.textContent = error.message;  // AbortError: dialog cancelled
+  } finally { busy = false; }
+};
+
+// Load: the player picks a saved file; its contents are sent to the game to rebuild it.
+const loadFile = document.querySelector('#load-file');
+document.querySelector('#load').onclick = () => { if (!busy) loadFile.click(); };
+loadFile.onchange = async () => {
+  const file = loadFile.files[0];
+  loadFile.value = '';  // Picking the same file again still triggers a load.
+  if (!file || busy) return;
+  busy = true;
+  message.textContent = '';
+  try {
+    let game;
+    try { game = JSON.parse(await file.text()); }
+    catch { throw new Error('The save file is not a valid game'); }
+    state = await request({action: 'load', game});
+    selected = null; targets = [];
+    render();
+    message.textContent = `Loaded ${file.name}`;
+    // A loaded computer game may have Black to move; let the computer answer.
+    await computerReply();
+  } catch (error) { message.textContent = error.message; }
+  finally { busy = false; }
+};
+
 try {
   const response = await fetch('/api/state');
   if (!response.ok) throw new Error('Could not load the game');

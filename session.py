@@ -20,6 +20,9 @@ PROMOTION_SETUP = [
 ]
 
 
+SAVE_VERSION = 1
+
+
 class Session:
     def __init__(self, opponent="human"):
         if opponent not in ("human", "computer"):
@@ -81,6 +84,35 @@ class Session:
         # Most recently undone last: the earlier move goes on top.
         self.redo.extend(undone)
 
+    def saved(self):
+        """The game as saved to file: enough to rebuild it, undo and redo."""
+        return {"version": SAVE_VERSION, "opponent": self.opponent,
+                "history": self.history, "redo": self.redo}
+
+    def restore(self, data):
+        """Replace this game with saved data. On invalid data, nothing changes."""
+        invalid = ValueError("The save file is not a valid game")
+        if (not isinstance(data, dict) or data.get("version") != SAVE_VERSION
+                or data.get("opponent") not in ("human", "computer")
+                or not isinstance(data.get("history"), list)
+                or not isinstance(data.get("redo"), list)
+                or not all(isinstance(record, dict)
+                           for record in data["history"] + data["redo"])):
+            raise invalid
+        opponent, history, redo = data["opponent"], data["history"], data["redo"]
+        # Check every recorded move is legal, including the moves that could be
+        # redone (most recently undone last, so they replay in reverse).
+        scratch = Session(opponent)
+        try:
+            scratch.replay(history)
+            for record in reversed(redo):
+                scratch.apply(record["source"], record["target"], record["promotion"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise invalid from error
+        self.opponent = opponent
+        self.replay(history)
+        self.redo = list(redo)
+
     def after_move(self):
         pass
 
@@ -118,6 +150,12 @@ class Session:
             return {"targets": legal_moves(self.position, action.get("source"))}
         elif command == "new":
             self.__init__(action.get("opponent", "human"))
+        elif command == "save":
+            # The browser writes this to a file the player chooses.
+            return {"game": self.saved()}
+        elif command == "load":
+            # The browser sends the contents of a file the player chose.
+            self.restore(action.get("game"))
         elif command == "promotion-setup":
             self.__init__()
             for source, target in PROMOTION_SETUP:
