@@ -67,3 +67,10 @@ def test_new_game_resets_the_opponent():
     assert session.view()["opponent"] == "human"
     with pytest.raises(ValueError):
         session.dispatch({"action": "new", "opponent": "robot"})
+
+
+def test_stalemate_scores_zero():
+    # Black king on h8 has no move and is not in check.
+    position = [{"h8": "bK", "g6": "wQ", "f7": "wK", "a2": "wP"}, "b"]
+    assert evaluate(position, "b") == 0
+    assert evaluate(position, "w") == 0

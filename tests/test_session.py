@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from session import Session
 
 
@@ -149,3 +151,64 @@ def test_undo_to_start_then_save_and_load():
     assert loaded.redo == session.redo
     loaded.dispatch({"action": "undo"})
     assert loaded.position == Session().position and loaded.redo == session.redo
+
+
+# Rejected save files leave the current game unchanged.
+
+def valid_save():
+    session = Session()
+    play_capture(session)
+    session.dispatch({"action": "undo"})
+    return session.dispatch({"action": "save"})["game"]
+
+
+def corrupt(change):
+    game = json.loads(json.dumps(valid_save()))
+    change(game)
+    return game
+
+
+@pytest.mark.parametrize("game", [
+    None,
+    [],
+    corrupt(lambda g: g.update(version=2)),
+    corrupt(lambda g: g.update(opponent="robot")),
+    corrupt(lambda g: g.update(history="e2-e4")),
+    corrupt(lambda g: g.update(redo=None)),
+    corrupt(lambda g: g["history"].append("e2-e4")),
+    corrupt(lambda g: g["history"][0].update(target="e5")),   # Illegal move.
+    corrupt(lambda g: g["redo"][0].update(source="a1")),      # Illegal redo move.
+    corrupt(lambda g: g["history"][0].pop("promotion")),      # Missing field.
+])
+def test_invalid_save_is_rejected_and_game_kept(game):
+    session = Session("computer")
+    session.play("e2", "e4")
+    before = (session.opponent, session.position, list(session.history), list(session.redo))
+    with pytest.raises(ValueError, match="not a valid game"):
+        session.dispatch({"action": "load", "game": game})
+    assert (session.opponent, session.position, session.history, session.redo) == before
+
+
+# Other actions.
+
+def test_legal_action_lists_targets():
+    assert set(Session().dispatch({"action": "legal", "source": "g1"})["targets"]) == {"f3", "h3"}
+
+
+def test_unknown_action_is_rejected():
+    with pytest.raises(ValueError, match="Unknown action"):
+        Session().dispatch({"action": "fly"})
+
+
+def test_computer_turn_is_enforced():
+    session = Session("computer")
+    with pytest.raises(ValueError, match="not the computer's turn"):
+        session.dispatch({"action": "computer-move"})
+    session.dispatch({"action": "move", "source": "e2", "target": "e4"})
+    with pytest.raises(ValueError, match="Wait for the computer"):
+        session.dispatch({"action": "move", "source": "d2", "target": "d4"})
+
+
+def test_unknown_opponent_is_rejected():
+    with pytest.raises(ValueError, match="Unknown opponent"):
+        Session("robot")

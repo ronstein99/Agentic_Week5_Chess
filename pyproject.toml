@@ -9,6 +9,8 @@ omit = ["tests/*", ".venv/*"]
 [tool.coverage.report]
 show_missing = true
 skip_empty = true
+# Command-line startup is run by hand, not by tests.
+exclude_also = ['if __name__ == "__main__":']
 
 [tool.ruff]
 line-length = 100
