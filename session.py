@@ -1,5 +1,9 @@
 """Application actions and information shown beside the board."""
 
+import json
+import os
+from pathlib import Path
+
 from computer import choose_move
 from game import (
     legal_moves,
@@ -20,7 +24,14 @@ PROMOTION_SETUP = [
 ]
 
 
+SAVE_VERSION = 1
+
+
 class Session:
+    # Where "save" writes and "load" reads. A class attribute, so New game
+    # (which re-runs __init__) keeps it; tests may override it per instance.
+    save_file = Path(__file__).parent / "game.save.json"
+
     def __init__(self, opponent="human"):
         if opponent not in ("human", "computer"):
             raise ValueError("Unknown opponent")
@@ -62,6 +73,55 @@ class Session:
         for record in records:
             self.apply(record["source"], record["target"], record["promotion"])
 
+    def saved(self):
+        """The game as saved to file: enough to rebuild it, undo and redo."""
+        return {"version": SAVE_VERSION, "opponent": self.opponent,
+                "history": self.history, "redo": self.redo}
+
+    def restore(self, data):
+        """Replace this game with saved data. On invalid data, nothing changes."""
+        invalid = ValueError("The save file is not a valid game")
+        if (not isinstance(data, dict) or data.get("version") != SAVE_VERSION
+                or data.get("opponent") not in ("human", "computer")
+                or not isinstance(data.get("history"), list)
+                or not isinstance(data.get("redo"), list)
+                or not all(isinstance(record, dict)
+                           for record in data["history"] + data["redo"])):
+            raise invalid
+        opponent, history, redo = data["opponent"], data["history"], data["redo"]
+        # Check every recorded move is legal, including the moves that could be
+        # redone (most recently undone last, so they replay in reverse).
+        scratch = Session(opponent)
+        try:
+            scratch.replay(history)
+            for record in reversed(redo):
+                scratch.apply(record["source"], record["target"], record["promotion"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise invalid from error
+        self.opponent = opponent
+        self.replay(history)
+        self.redo = list(redo)
+
+    def save(self):
+        text = json.dumps(self.saved(), indent=2)
+        # Write then rename, so an interrupted save never leaves a half-written
+        # file. The hidden name still matches the *.save.json ignore rule.
+        temporary = self.save_file.with_name("." + self.save_file.name)
+        try:
+            temporary.write_text(text, encoding="utf-8")
+            os.replace(temporary, self.save_file)
+        except OSError as error:
+            raise ValueError("Could not save the game") from error
+
+    def load(self):
+        try:
+            text = self.save_file.read_text(encoding="utf-8")
+        except FileNotFoundError as error:
+            raise ValueError("There is no saved game") from error
+        except OSError as error:
+            raise ValueError("Could not read the saved game") from error
+        self.restore(json.loads(text))
+
     def after_move(self):
         pass
 
@@ -97,6 +157,10 @@ class Session:
             return {"targets": legal_moves(self.position, action.get("source"))}
         elif command == "new":
             self.__init__(action.get("opponent", "human"))
+        elif command == "save":
+            self.save()
+        elif command == "load":
+            self.load()
         elif command == "promotion-setup":
             self.__init__()
             for source, target in PROMOTION_SETUP:

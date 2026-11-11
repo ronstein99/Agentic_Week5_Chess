@@ -82,6 +82,8 @@ telling your partner.
 - Save file `game.save.json` (ignored by git):
   `{"version": 1, "opponent": "...", "history": [...], "redo": [...]}`.
   Load replays `history` in a fresh session, keeping opponent, undo and redo.
+  Implemented on `feature/save-load`: `Session.save()` / `Session.load()` behind the
+  `save` / `load` actions and buttons; the file sits next to `server.py`.
 - Actions: `{"action": "undo"}` / `"redo"` (undo partner), `"save"` / `"load"`
   (save/load partner). Each partner adds only their own `dispatch` branches and buttons.
 - Known merge issue: `captured.py` counts missing pieces, so a promoted pawn would show as

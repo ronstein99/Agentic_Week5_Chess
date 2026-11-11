@@ -143,9 +143,13 @@ document.querySelector('#controls').onclick = async event => {
   if (!button?.dataset.action || busy) return;
   busy = true;
   try {
-    state = await request({action: button.dataset.action, opponent: button.dataset.opponent});
+    const action = button.dataset.action;
+    state = await request({action, opponent: button.dataset.opponent});
     selected = null; targets = [];
-    message.textContent = ''; render();
+    message.textContent = {save: 'Game saved', load: 'Game loaded'}[action] || '';
+    render();
+    // A loaded computer game may have Black to move; let the computer answer.
+    await computerReply();
   } catch (error) { message.textContent = error.message; }
   finally { busy = false; }
 };
