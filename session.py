@@ -25,13 +25,42 @@ class Session:
         if opponent not in ("human", "computer"):
             raise ValueError("Unknown opponent")
         self.position = new_position()
-        self.notation = []
         self.opponent = opponent
+        # Shared move history (see README "Agreed shared design").
+        # Each record: {"source", "target", "promotion", "captured", "label"}.
+        self.history = []
+        # Undone move records, most recently undone last.
+        self.redo = []
+
+    @property
+    def notation(self):
+        """Move labels of the currently played continuation."""
+        return [record["label"] for record in self.history]
 
     def play(self, source, target):
+        """Play a new move. A new move discards anything that could be redone."""
+        self.apply(source, target)
+        self.redo = []
+
+    def apply(self, source, target, promotion=None):
+        """Apply one move and append its record to history."""
+        captured = self.position[0].get(target)
+        # promotion is recorded but not used until feature/promotion is merged.
         label = move(self.position, source, target)
-        self.notation.append(label)
+        self.history.append({"source": source, "target": target,
+                             "promotion": promotion, "captured": captured,
+                             "label": label})
         self.after_move()
+
+    def replay(self, records):
+        """Rebuild the position from the start by replaying move records.
+
+        Keeps self.redo unchanged; callers (undo, redo, load) manage it.
+        """
+        self.position = new_position()
+        self.history = []
+        for record in records:
+            self.apply(record["source"], record["target"], record["promotion"])
 
     def after_move(self):
         pass

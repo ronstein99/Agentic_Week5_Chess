@@ -61,3 +61,28 @@ save/load should also preserve the ability to redo.
 
 Establish checks for interactions as you integrate features. Supplied branches are workshop
 contributions to inspect and integrate, not a guarantee of correctness in every combination.
+
+## Agreed shared design (save/load + undo)
+
+Branches `feature/save-load` and `feature/undo` both start from the commit that added this
+section. Do not change the record format or how `Session.apply` records moves without
+telling your partner.
+
+- `Session.history`: move records, oldest first. One per move, computer moves included:
+  `{"source": "e4", "target": "d5", "promotion": None, "captured": "bP", "label": "e4xd5"}`.
+  `promotion` stays `None` until `feature/promotion` is merged; `captured` is the piece that
+  was on `target` before the move.
+- `Session.redo`: undone records, most recently undone last. `play()` (a new move) clears it;
+  New game clears both lists.
+- `Session.notation` is derived from `history`, so move notation always matches the game.
+- `Session.replay(records)` rebuilds the position from the start; undo, redo and load use it.
+  The computer is never asked to choose again, so recorded moves replay exactly.
+- Undo at the start does nothing. Against a person undo takes back 1 move; against the
+  computer it takes back 2 (its reply and yours), so White is to move. Redo restores the same.
+- Save file `game.save.json` (ignored by git):
+  `{"version": 1, "opponent": "...", "history": [...], "redo": [...]}`.
+  Load replays `history` in a fresh session, keeping opponent, undo and redo.
+- Actions: `{"action": "undo"}` / `"redo"` (undo partner), `"save"` / `"load"`
+  (save/load partner). Each partner adds only their own `dispatch` branches and buttons.
+- Known merge issue: `captured.py` counts missing pieces, so a promoted pawn would show as
+  captured. Build the captured display from `history[*]["captured"]` instead.
