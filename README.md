@@ -26,8 +26,8 @@ Start a game against another person or against the computer. Against the compute
 play White; it looks one move ahead and plays the move that leaves it the most material,
 preferring checkmate. Select a piece, then a highlighted destination. White moves first.
 Standard movement, captures, check, checkmate and stalemate apply: you cannot leave your
-own king in check, checkmate wins, and stalemate is a draw. Pawns initially remain pawns at
-the far rank; a later branch adds promotion to a piece the player chooses. There is no clock.
+own king in check, checkmate wins, and stalemate is a draw. A pawn reaching the far rank
+promotes to a queen, rook, bishop or knight the player chooses. There is no clock.
 
 **Not supported: castling and en passant.** Neither move exists in this game. The other
 draw rules (insufficient material, threefold repetition, the fifty-move rule) are not

@@ -5,6 +5,7 @@ from game import (
     legal_moves,
     move,
     new_position,
+    promotes,
     status,
     winner,
 )
@@ -52,16 +53,15 @@ class Session:
         """Move labels of the currently played continuation."""
         return [record["label"] for record in self.history]
 
-    def play(self, source, target):
+    def play(self, source, target, promotion=None):
         """Play a new move. A new move discards anything that could be redone."""
-        self.apply(source, target)
+        self.apply(source, target, promotion)
         self.redo = []
 
     def apply(self, source, target, promotion=None):
         """Apply one move and append its record to history."""
         captured = self.position[0].get(target)
-        # promotion is recorded but not used until feature/promotion is merged.
-        label = move(self.position, source, target)
+        label = move(self.position, source, target, promotion)
         self.history.append({"source": source, "target": target,
                              "promotion": promotion, "captured": captured,
                              "label": label})
@@ -151,7 +151,7 @@ class Session:
         if command == "move":
             if self.computer_to_move():
                 raise ValueError("Wait for the computer's move")
-            self.play(action.get("source"), action.get("target"))
+            self.play(action.get("source"), action.get("target"), action.get("promotion"))
         elif command == "computer-move":
             if not self.computer_to_move():
                 raise ValueError("It is not the computer's turn")
@@ -159,7 +159,10 @@ class Session:
         elif command == "undo":
             self.undo()
         elif command == "legal":
-            return {"targets": legal_moves(self.position, action.get("source"))}
+            source = action.get("source")
+            targets = legal_moves(self.position, source)
+            return {"targets": targets,
+                    "promotions": [t for t in targets if promotes(self.position, source, t)]}
         elif command == "new":
             self.reset(action.get("opponent", "human"))
         elif command == "save":
