@@ -4,6 +4,9 @@ import json
 import threading
 import urllib.error
 import urllib.request
+from collections.abc import Iterator
+from email.message import Message
+from typing import Any
 
 import pytest
 
@@ -11,7 +14,7 @@ from server import make_server
 
 
 @pytest.fixture
-def base_url():
+def base_url() -> Iterator[str]:
     server = make_server(port=0)  # Any free port.
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -20,15 +23,16 @@ def base_url():
     server.server_close()
 
 
-def get(url):
+def get(url: str) -> tuple[int, Message, bytes]:
     with urllib.request.urlopen(url) as response:
         return response.status, response.headers, response.read()
 
 
-def post(url, body):
+def post(url: str, body: object) -> tuple[int, Any]:
     data = body if isinstance(body, bytes) else json.dumps(body).encode()
-    request = urllib.request.Request(url, data=data, method="POST",
-                                     headers={"Content-Type": "application/json"})
+    request = urllib.request.Request(
+        url, data=data, method="POST", headers={"Content-Type": "application/json"}
+    )
     try:
         with urllib.request.urlopen(request) as response:
             return response.status, json.loads(response.read())
@@ -36,31 +40,32 @@ def post(url, body):
         return error.code, json.loads(error.read())
 
 
-@pytest.mark.parametrize("path,content_type", [("/", "text/html"),
-                                               ("/app.js", "text/javascript"),
-                                               ("/style.css", "text/css")])
-def test_serves_static_files(base_url, path, content_type):
+@pytest.mark.parametrize(
+    "path,content_type",
+    [("/", "text/html"), ("/app.js", "text/javascript"), ("/style.css", "text/css")],
+)
+def test_serves_static_files(base_url: str, path: str, content_type: str) -> None:
     status, headers, body = get(base_url + path)
     assert status == 200 and body
     assert headers["Content-Type"].startswith(content_type)
     assert headers["Cache-Control"] == "no-store"
 
 
-def test_unknown_paths_are_not_found(base_url):
+def test_unknown_paths_are_not_found(base_url: str) -> None:
     with pytest.raises(urllib.error.HTTPError) as error:
         get(base_url + "/missing")
     assert error.value.code == 404
     assert post(base_url + "/api/other", {"action": "new"}) == (404, {"error": "Not found"})
 
 
-def test_state_starts_with_a_new_game(base_url):
+def test_state_starts_with_a_new_game(base_url: str) -> None:
     status, _, body = get(base_url + "/api/state")
     state = json.loads(body)
     assert status == 200
     assert state["turn"] == "w" and state["moves"] == [] and state["opponent"] == "human"
 
 
-def test_actions_change_the_shared_game(base_url):
+def test_actions_change_the_shared_game(base_url: str) -> None:
     action = base_url + "/api/action"
     status, state = post(action, {"action": "move", "source": "e2", "target": "e4"})
     assert status == 200 and state["moves"] == ["e2-e4"] and state["turn"] == "b"
@@ -70,20 +75,23 @@ def test_actions_change_the_shared_game(base_url):
     assert status == 200 and state["moves"] == []
 
 
-@pytest.mark.parametrize("body,error", [
-    ({"action": "move", "source": "e2", "target": "e5"}, None),
-    ({"action": "fly"}, "Unknown action"),
-    ([1, 2], "Expected an action object"),
-    (b"not json", None),
-])
-def test_bad_actions_are_rejected(base_url, body, error):
+@pytest.mark.parametrize(
+    "body,error",
+    [
+        ({"action": "move", "source": "e2", "target": "e5"}, None),
+        ({"action": "fly"}, "Unknown action"),
+        ([1, 2], "Expected an action object"),
+        (b"not json", None),
+    ],
+)
+def test_bad_actions_are_rejected(base_url: str, body: object, error: str | None) -> None:
     status, result = post(base_url + "/api/action", body)
     assert status == 400 and result["error"]
     if error:
         assert result["error"] == error
 
 
-def test_empty_request_is_rejected(base_url):
+def test_empty_request_is_rejected(base_url: str) -> None:
     request = urllib.request.Request(base_url + "/api/action", data=b"", method="POST")
     with pytest.raises(urllib.error.HTTPError) as error:
         urllib.request.urlopen(request)

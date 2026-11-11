@@ -1,27 +1,33 @@
 import json
+from collections.abc import Callable
+from typing import Any
 
 import pytest
 
 from session import Session
 
 
-def play_capture(session):
+def play_capture(session: Session) -> None:
     session.play("e2", "e4")
     session.play("d7", "d5")
     session.play("e4", "d5")
 
 
-def test_history_records_moves():
+def test_history_records_moves() -> None:
     session = Session()
     play_capture(session)
-    assert session.history[-1] == {"source": "e4", "target": "d5",
-                                   "promotion": None, "captured": "bP",
-                                   "label": "e4xd5"}
+    assert session.history[-1] == {
+        "source": "e4",
+        "target": "d5",
+        "promotion": None,
+        "captured": "bP",
+        "label": "e4xd5",
+    }
     assert session.history[0]["captured"] is None
     assert session.view()["moves"] == ["e2-e4", "d7-d5", "e4xd5"]
 
 
-def test_replay_rebuilds_same_game():
+def test_replay_rebuilds_same_game() -> None:
     original = Session()
     play_capture(original)
     rebuilt = Session()
@@ -31,7 +37,7 @@ def test_replay_rebuilds_same_game():
     assert rebuilt.notation == original.notation
 
 
-def test_replay_prefix_restores_capture_and_turn():
+def test_replay_prefix_restores_capture_and_turn() -> None:
     session = Session()
     play_capture(session)
     session.replay(session.history[:2])
@@ -40,10 +46,12 @@ def test_replay_prefix_restores_capture_and_turn():
     assert session.position[1] == "w"
 
 
-def test_new_move_clears_redo_and_new_game_clears_all():
+def test_new_move_clears_redo_and_new_game_clears_all() -> None:
     session = Session()
     play_capture(session)
-    session.redo = [{"source": "x"}]
+    session.redo = [
+        {"source": "e7", "target": "e5", "promotion": None, "captured": None, "label": "e7-e5"}
+    ]
     session.play("d8", "d5")
     assert session.redo == []
     session.dispatch({"action": "new"})
@@ -52,7 +60,8 @@ def test_new_move_clears_redo_and_new_game_clears_all():
 
 # Undo.
 
-def play_computer_game(session):
+
+def play_computer_game(session: Session) -> None:
     """Two moves for each side against the computer, so White is to move."""
     session.dispatch({"action": "move", "source": "e2", "target": "e4"})
     session.dispatch({"action": "computer-move"})
@@ -60,7 +69,7 @@ def play_computer_game(session):
     session.dispatch({"action": "computer-move"})
 
 
-def test_undo_restores_capture_turn_and_notation():
+def test_undo_restores_capture_turn_and_notation() -> None:
     session = Session()
     play_capture(session)
     view = session.dispatch({"action": "undo"})
@@ -70,7 +79,7 @@ def test_undo_restores_capture_turn_and_notation():
     assert session.redo[-1]["label"] == "e4xd5"
 
 
-def test_repeated_undo_reaches_start_then_does_nothing():
+def test_repeated_undo_reaches_start_then_does_nothing() -> None:
     session = Session()
     play_capture(session)
     for _ in range(3):
@@ -81,7 +90,7 @@ def test_repeated_undo_reaches_start_then_does_nothing():
     assert [r["label"] for r in session.redo] == ["e4xd5", "d7-d5", "e2-e4"]
 
 
-def test_undo_against_computer_takes_back_reply_and_your_move():
+def test_undo_against_computer_takes_back_reply_and_your_move() -> None:
     session = Session("computer")
     play_computer_game(session)
     view = session.dispatch({"action": "undo"})
@@ -92,7 +101,7 @@ def test_undo_against_computer_takes_back_reply_and_your_move():
     assert session.history == [] and session.position == Session().position
 
 
-def test_undo_against_computer_before_its_reply_takes_back_one():
+def test_undo_against_computer_before_its_reply_takes_back_one() -> None:
     session = Session("computer")
     session.dispatch({"action": "move", "source": "e2", "target": "e4"})
     view = session.dispatch({"action": "undo"})
@@ -101,7 +110,8 @@ def test_undo_against_computer_before_its_reply_takes_back_one():
 
 # Undo with save/load.
 
-def save_and_load(session):
+
+def save_and_load(session: Session) -> Session:
     """Save through JSON, as the browser does, and load into a fresh session."""
     game = json.loads(json.dumps(session.dispatch({"action": "save"})["game"]))
     loaded = Session()
@@ -109,7 +119,7 @@ def save_and_load(session):
     return loaded
 
 
-def test_load_after_undo_keeps_game_and_redo():
+def test_load_after_undo_keeps_game_and_redo() -> None:
     session = Session("computer")
     play_computer_game(session)
     session.dispatch({"action": "undo"})
@@ -120,7 +130,7 @@ def test_load_after_undo_keeps_game_and_redo():
     assert loaded.redo == session.redo
 
 
-def test_undo_after_load_matches_undo_before_save():
+def test_undo_after_load_matches_undo_before_save() -> None:
     session = Session()
     play_capture(session)
     loaded = save_and_load(session)
@@ -132,7 +142,7 @@ def test_undo_after_load_matches_undo_before_save():
     assert loaded.position[0]["d5"] == "bP"
 
 
-def test_undo_after_load_against_computer_takes_back_two():
+def test_undo_after_load_against_computer_takes_back_two() -> None:
     session = Session("computer")
     play_computer_game(session)
     loaded = save_and_load(session)
@@ -141,7 +151,7 @@ def test_undo_after_load_against_computer_takes_back_two():
     assert loaded.redo[-1]["label"] == "d2-d4"
 
 
-def test_undo_to_start_then_save_and_load():
+def test_undo_to_start_then_save_and_load() -> None:
     session = Session()
     play_capture(session)
     for _ in range(3):
@@ -155,32 +165,37 @@ def test_undo_to_start_then_save_and_load():
 
 # Rejected save files leave the current game unchanged.
 
-def valid_save():
+
+def valid_save() -> dict[str, Any]:
     session = Session()
     play_capture(session)
     session.dispatch({"action": "undo"})
-    return session.dispatch({"action": "save"})["game"]
+    game: dict[str, Any] = session.dispatch({"action": "save"})["game"]
+    return game
 
 
-def corrupt(change):
-    game = json.loads(json.dumps(valid_save()))
+def corrupt(change: Callable[[dict[str, Any]], object]) -> dict[str, Any]:
+    game: dict[str, Any] = json.loads(json.dumps(valid_save()))
     change(game)
     return game
 
 
-@pytest.mark.parametrize("game", [
-    None,
-    [],
-    corrupt(lambda g: g.update(version=2)),
-    corrupt(lambda g: g.update(opponent="robot")),
-    corrupt(lambda g: g.update(history="e2-e4")),
-    corrupt(lambda g: g.update(redo=None)),
-    corrupt(lambda g: g["history"].append("e2-e4")),
-    corrupt(lambda g: g["history"][0].update(target="e5")),   # Illegal move.
-    corrupt(lambda g: g["redo"][0].update(source="a1")),      # Illegal redo move.
-    corrupt(lambda g: g["history"][0].pop("promotion")),      # Missing field.
-])
-def test_invalid_save_is_rejected_and_game_kept(game):
+@pytest.mark.parametrize(
+    "game",
+    [
+        None,
+        [],
+        corrupt(lambda g: g.update(version=2)),
+        corrupt(lambda g: g.update(opponent="robot")),
+        corrupt(lambda g: g.update(history="e2-e4")),
+        corrupt(lambda g: g.update(redo=None)),
+        corrupt(lambda g: g["history"].append("e2-e4")),
+        corrupt(lambda g: g["history"][0].update(target="e5")),  # Illegal move.
+        corrupt(lambda g: g["redo"][0].update(source="a1")),  # Illegal redo move.
+        corrupt(lambda g: g["history"][0].pop("promotion")),  # Missing field.
+    ],
+)
+def test_invalid_save_is_rejected_and_game_kept(game: object) -> None:
     session = Session("computer")
     session.play("e2", "e4")
     before = (session.opponent, session.position, list(session.history), list(session.redo))
@@ -191,16 +206,17 @@ def test_invalid_save_is_rejected_and_game_kept(game):
 
 # Other actions.
 
-def test_legal_action_lists_targets():
+
+def test_legal_action_lists_targets() -> None:
     assert set(Session().dispatch({"action": "legal", "source": "g1"})["targets"]) == {"f3", "h3"}
 
 
-def test_unknown_action_is_rejected():
+def test_unknown_action_is_rejected() -> None:
     with pytest.raises(ValueError, match="Unknown action"):
         Session().dispatch({"action": "fly"})
 
 
-def test_computer_turn_is_enforced():
+def test_computer_turn_is_enforced() -> None:
     session = Session("computer")
     with pytest.raises(ValueError, match="not the computer's turn"):
         session.dispatch({"action": "computer-move"})
@@ -209,6 +225,19 @@ def test_computer_turn_is_enforced():
         session.dispatch({"action": "move", "source": "d2", "target": "d4"})
 
 
-def test_unknown_opponent_is_rejected():
+def test_unknown_opponent_is_rejected() -> None:
     with pytest.raises(ValueError, match="Unknown opponent"):
         Session("robot")
+
+
+@pytest.mark.parametrize(
+    "action",
+    [
+        {"action": "move", "target": "e4"},
+        {"action": "move", "source": "e2", "target": 4},
+        {"action": "legal"},
+    ],
+)
+def test_actions_need_squares(action: dict[str, Any]) -> None:
+    with pytest.raises(ValueError, match="Expected a square"):
+        Session().dispatch(action)

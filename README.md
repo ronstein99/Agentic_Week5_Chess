@@ -19,7 +19,8 @@ Checks (settings in `pyproject.toml`):
 ```sh
 python -m pytest --cov   # tests with a coverage report of the app modules
 ruff check .             # lint; `ruff check --fix .` fixes what it can
-mypy                     # type check, including unannotated functions
+ruff format --check .    # formatting; `ruff format .` applies it
+mypy                     # strict type check (`strict = true` in pyproject.toml)
 ```
 
 Start a game against another person or against the computer. Against the computer you

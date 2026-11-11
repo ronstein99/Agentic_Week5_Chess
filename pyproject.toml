@@ -24,7 +24,5 @@ select = ["E", "W", "F", "I", "B", "UP", "SIM"]
 python_version = "3.10"
 files = ["."]
 exclude = ["^\\.venv/"]
-# The code has few annotations; still type-check the bodies of unannotated functions.
-check_untyped_defs = true
-warn_unused_ignores = true
-warn_redundant_casts = true
+# Every function is annotated; keep it that way.
+strict = true

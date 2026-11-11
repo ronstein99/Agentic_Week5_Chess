@@ -160,8 +160,11 @@ document.querySelector('#controls').onclick = async event => {
   busy = true;
   try {
     state = await request({action: button.dataset.action, opponent: button.dataset.opponent});
-    selected = null; targets = [];
+    selected = null; targets = []; promotions = [];
     message.textContent = ''; render();
+    // Redo can restore your move without a recorded reply (for example, a game saved
+    // while the computer was to move); the computer then answers as usual.
+    await computerReply();
   } catch (error) { message.textContent = error.message; }
   finally { busy = false; }
 };
