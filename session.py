@@ -1,5 +1,6 @@
 """Application actions and information shown beside the board."""
 
+from captured import missing_pieces
 from computer import choose_move
 from game import (
     legal_moves,
@@ -27,6 +28,7 @@ class Session:
         if opponent not in ("human", "computer"):
             raise ValueError("Unknown opponent")
         self.position = new_position()
+        self.captured = []
         self.opponent = opponent
         # Shared move history (see README "Agreed shared design").
         # Each record: {"source", "target", "promotion", "captured", "label"}.
@@ -117,7 +119,7 @@ class Session:
         self.redo = list(redo)
 
     def after_move(self):
-        pass
+        self.captured = missing_pieces(self.position)
 
     def view(self):
         return {
@@ -135,7 +137,7 @@ class Session:
                 and status(self.position) not in ("checkmate", "stalemate"))
 
     def sidebar(self):
-        return {}
+        return {"captured": self.captured}
 
     def dispatch(self, action):
         command = action.get("action")
