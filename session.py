@@ -54,9 +54,18 @@ class Session:
         return [record["label"] for record in self.history]
 
     def play(self, source, target, promotion=None):
-        """Play a new move. A new move discards anything that could be redone."""
+        """Play a move. A different move from the one that could be redone discards redo.
+
+        Playing exactly the next redo move (same squares and promotion) just uses it up,
+        so the rest of the undone continuation can still be redone.
+        """
         self.apply(source, target, promotion)
-        self.redo = []
+        following = self.redo[-1] if self.redo else {}
+        if (following.get("source"), following.get("target"),
+                following.get("promotion")) == (source, target, promotion):
+            self.redo.pop()
+        else:
+            self.redo = []
 
     def apply(self, source, target, promotion=None):
         """Apply one move and append its record to history."""
@@ -95,6 +104,26 @@ class Session:
         self.replay(records)
         # Most recently undone last: the earlier move goes on top.
         self.redo.extend(undone)
+
+    def redo_move(self):
+        """Restore what the last undo took back, with its captures and promotions.
+
+        Against a person this redoes one move. Against the computer it redoes your move
+        and the computer's original reply, so White is to move again, exactly as before
+        the undo. With nothing to redo it does nothing.
+        """
+        if not self.redo:
+            return
+        self.apply_redo()
+        if self.opponent == "computer":
+            while self.redo and len(self.history) % 2:
+                self.apply_redo()
+
+    def apply_redo(self):
+        """Replay the next undone record; it leaves self.redo only once it has applied."""
+        record = self.redo[-1]
+        self.apply(record["source"], record["target"], record["promotion"])
+        self.redo.pop()
 
     def saved(self):
         """The game as saved to file: enough to rebuild it, undo and redo."""
@@ -158,6 +187,8 @@ class Session:
             self.play(*choose_move(self.position))
         elif command == "undo":
             self.undo()
+        elif command == "redo":
+            self.redo_move()
         elif command == "legal":
             source = action.get("source")
             targets = legal_moves(self.position, source)
