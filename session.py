@@ -1,6 +1,5 @@
 """Application actions and information shown beside the board."""
 
-from captured import missing_pieces
 from computer import choose_move
 from game import (
     legal_moves,
@@ -28,7 +27,6 @@ class Session:
         if opponent not in ("human", "computer"):
             raise ValueError("Unknown opponent")
         self.position = new_position()
-        self.captured = []
         self.opponent = opponent
         # Shared move history (see README "Agreed shared design").
         # Each record: {"source", "target", "promotion", "captured", "label"}.
@@ -39,6 +37,15 @@ class Session:
     def reset(self, opponent="human"):
         """Start a new game: clears history and redo."""
         Session.__init__(self, opponent)
+
+    @property
+    def captured(self):
+        """Pieces actually captured in the played continuation, as they were when taken.
+
+        Derived from history, so undo, redo and load always match the board, and a
+        promoted pawn is not counted as captured.
+        """
+        return sorted(record["captured"] for record in self.history if record["captured"])
 
     @property
     def notation(self):
@@ -119,7 +126,7 @@ class Session:
         self.redo = list(redo)
 
     def after_move(self):
-        self.captured = missing_pieces(self.position)
+        pass
 
     def view(self):
         return {
